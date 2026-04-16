@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Scan QR codes and save student IDs to Google Sheets">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ID Scanner">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%23667eea' width='180' height='180'/><text x='90' y='115' font-size='70' font-weight='bold' fill='white' text-anchor='middle'>QR</text></svg>">
+    <link rel="manifest" href="manifest.json">
+    <title>School ID Scanner</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>School ID Scanner</h1>
+        
+        <!-- Course Selection -->
+        <div class="form-group">
+            <label for="course">Select Course:</label>
+            <select id="course">
+                <option value="">-- Select Course --</option>
+                <option value="HM">Hotel Management (HM)</option>
+                <option value="IT">Information Technology (IT)</option>
+                <option value="BSBA">Business Administration (BSBA)</option>
+                <option value="CS">Computer Science (CS)</option>
+                <option value="ENG">Engineering (ENG)</option>
+            </select>
+        </div>
+
+        <!-- Camera Container -->
+        <div class="camera-container">
+            <video id="cameraFeed" autoplay></video>
+            <canvas id="canvas" style="display: none;"></canvas>
+        </div>
+
+        <!-- Scanned Data Display -->
+        <div class="scanned-data" id="scannedData" style="display: none;">
+            <p><strong>Student ID:</strong> <span id="studentId"></span></p>
+            <p><strong>Course:</strong> <span id="courseDisplay"></span></p>
+        </div>
+
+        <!-- Buttons -->
+        <div class="button-group">
+            <button id="scanBtn" class="btn btn-primary">Start Scan</button>
+            <button id="stopBtn" class="btn btn-secondary" style="display: none;">Stop Scan</button>
+            <button id="submitBtn" class="btn btn-success" style="display: none;">Submit to Database</button>
+        </div>
+
+        <!-- Message Display -->
+        <div id="message" class="message"></div>
+    </div>
+
+    <!-- Success Notification -->
+    <div id="notification" class="notification" style="display: none;">
+        <div class="notification-content">
+            <p id="notificationText">Scan Successful!</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
