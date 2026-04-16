@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Scan QR codes and save student IDs to Google Sheets">
+    <meta name="description" content="Scan QR codes and save student data with offline support">
     <meta name="theme-color" content="#667eea">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,49 +15,131 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>School ID Scanner</h1>
-        
-        <!-- Course Selection -->
-        <div class="form-group">
-            <label for="course">Select Course:</label>
-            <select id="course">
-                <option value="">-- Select Course --</option>
-                <option value="HM">Hotel Management (HM)</option>
-                <option value="IT">Information Technology (IT)</option>
-                <option value="BSBA">Business Administration (BSBA)</option>
-                <option value="CS">Computer Science (CS)</option>
-                <option value="ENG">Engineering (ENG)</option>
-            </select>
-        </div>
+    <div class="app-wrapper">
+        <!-- Header with Status & Sync -->
+        <header class="app-header">
+            <div class="header-left">
+                <h1>📱 ID Scanner</h1>
+                <p class="sync-status" id="syncStatus">✓ Ready</p>
+            </div>
+            <div class="header-right">
+                <button id="syncBtn" class="btn-icon" title="Sync with Database">
+                    <span id="syncIcon">↻</span> Sync
+                </button>
+                <button id="viewDataBtn" class="btn-icon" title="View Saved Data">
+                    <span>📊</span> Data
+                </button>
+            </div>
+        </header>
 
-        <!-- Camera Container -->
-        <div class="camera-container">
-            <video id="cameraFeed" autoplay></video>
-            <canvas id="canvas" style="display: none;"></canvas>
-        </div>
+        <div class="container">
+            <!-- TAB NAVIGATION -->
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="scan-tab">Scan</button>
+                <button class="tab-btn" data-tab="data-tab">Records</button>
+            </div>
 
-        <!-- Scanned Data Display -->
-        <div class="scanned-data" id="scannedData" style="display: none;">
-            <p><strong>Student ID:</strong> <span id="studentId"></span></p>
-            <p><strong>Course:</strong> <span id="courseDisplay"></span></p>
-        </div>
+            <!-- SCAN TAB -->
+            <div id="scan-tab" class="tab-content active">
+                <!-- Course Selection -->
+                <div class="form-group">
+                    <label for="course">📚 Select Course:</label>
+                    <select id="course">
+                        <option value="">-- Select Course --</option>
+                        <option value="HM">Hotel Management (HM)</option>
+                        <option value="IT">Information Technology (IT)</option>
+                        <option value="BSBA">Business Administration (BSBA)</option>
+                        <option value="CS">Computer Science (CS)</option>
+                        <option value="ENG">Engineering (ENG)</option>
+                    </select>
+                </div>
 
-        <!-- Buttons -->
-        <div class="button-group">
-            <button id="scanBtn" class="btn btn-primary">Start Scan</button>
-            <button id="stopBtn" class="btn btn-secondary" style="display: none;">Stop Scan</button>
-            <button id="submitBtn" class="btn btn-success" style="display: none;">Submit to Database</button>
-        </div>
+                <!-- Camera Container -->
+                <div class="camera-container" id="cameraContainer">
+                    <video id="cameraFeed" autoplay></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                    <div class="camera-overlay" id="cameraOverlay" style="display: none;">
+                        <div class="scanning-indicator">🔍 Scanning...</div>
+                    </div>
+                </div>
 
-        <!-- Message Display -->
-        <div id="message" class="message"></div>
+                <!-- Scanned Data Display -->
+                <div class="scanned-data" id="scannedData" style="display: none;">
+                    <div class="scanned-item">
+                        <label>Student ID:</label>
+                        <input type="text" id="studentId" readonly>
+                    </div>
+                    <div class="scanned-item">
+                        <label>Student Name:</label>
+                        <input type="text" id="studentName" placeholder="Enter name here">
+                    </div>
+                    <div class="scanned-item">
+                        <label>Course:</label>
+                        <input type="text" id="courseDisplay" readonly>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="button-group">
+                    <button id="scanBtn" class="btn btn-primary">▶ Start Scan</button>
+                    <button id="stopBtn" class="btn btn-secondary" style="display: none;">⏹ Stop Scan</button>
+                    <button id="submitBtn" class="btn btn-success" style="display: none;">💾 Save Record</button>
+                    <button id="clearScanBtn" class="btn btn-danger" style="display: none;">✕ Clear</button>
+                </div>
+
+                <!-- Message Display -->
+                <div id="message" class="message"></div>
+            </div>
+
+            <!-- DATA/RECORDS TAB -->
+            <div id="data-tab" class="tab-content">
+                <div class="data-controls">
+                    <h2>📋 Saved Records</h2>
+                    <div class="data-actions">
+                        <button id="selectAllBtn" class="btn btn-sm btn-secondary" title="Select All Records">
+                            ☐ Select All
+                        </button>
+                        <button id="deleteSelectedBtn" class="btn btn-sm btn-danger" style="display: none;" title="Delete Selected Records">
+                            🗑 Delete Selected
+                        </button>
+                        <button id="clearAllBtn" class="btn btn-sm btn-danger" title="Delete All Records">
+                            ⚠ Clear All
+                        </button>
+                        <span class="record-count" id="recordCount">0 records</span>
+                    </div>
+                </div>
+
+                <!-- Data Table -->
+                <div class="table-wrapper">
+                    <table id="dataTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="col-select">
+                                    <input type="checkbox" id="selectAllCheckbox">
+                                </th>
+                                <th>Timestamp</th>
+                                <th>Student ID</th>
+                                <th>Name</th>
+                                <th>Course</th>
+                                <th>Status</th>
+                                <th class="col-action">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr class="empty-state">
+                                <td colspan="7">📭 No records yet. Start scanning!</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Success Notification -->
     <div id="notification" class="notification" style="display: none;">
         <div class="notification-content">
-            <p id="notificationText">Scan Successful!</p>
+            <p id="notificationText">Success!</p>
         </div>
     </div>
 
