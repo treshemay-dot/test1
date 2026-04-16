@@ -108,6 +108,7 @@ let canvas = document.getElementById('canvas');
 let ctx = canvas.getContext('2d');
 let scanning = false;
 let scannedId = null;
+let barcodeDetector = null;
 
 // Elements
 const scanBtn = document.getElementById('scanBtn');
@@ -171,6 +172,15 @@ async function startScanning() {
         });
         
         video.srcObject = stream;
+        await new Promise(resolve => {
+            if (video.readyState >= 2) {
+                resolve();
+            } else {
+                video.onloadedmetadata = () => resolve();
+            }
+        });
+        await video.play();
+        
         scanning = true;
         
         scanBtn.style.display = 'none';
@@ -179,7 +189,7 @@ async function startScanning() {
         submitBtn.style.display = 'none';
         clearScanBtn.style.display = 'none';
         document.getElementById('cameraOverlay').style.display = 'flex';
-        showMessage('🔍 Scanning... Point camera at QR/Barcode', 'info');
+        showMessage('🔍 Scanning... Point camera at a QR code or barcode', 'info');
         
         scanQRCode();
     } catch (err) {
@@ -202,30 +212,49 @@ function stopScanning() {
     showMessage('', '');
 }
 
-function scanQRCode() {
+async function scanQRCode() {
+    if (!scanning) {
+        return;
+    }
+
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+        requestAnimationFrame(scanQRCode);
+        return;
+    }
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    
-    const scanInterval = setInterval(() => {
-        if (!scanning) {
-            clearInterval(scanInterval);
-            return;
-        }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, canvas.width, canvas.height, {
-            inversionAttempts: "dontInvert"
-        });
-
-        if (code) {
-            scannedId = code.data;
-            stopScanning();
-            displayScannedData();
-            showNotification('✓ Scan Successful!');
-            clearInterval(scanInterval);
+    if (barcodeDetector) {
+        try {
+            const barcodes = await barcodeDetector.detect(canvas);
+            if (barcodes.length > 0) {
+                scannedId = barcodes[0].rawValue || barcodes[0].raw_value || '';
+                stopScanning();
+                displayScannedData();
+                showNotification('✓ Scan Successful!');
+                return;
+            }
+        } catch (err) {
+            console.warn('BarcodeDetector scan failed, falling back to QR detection', err);
         }
-    }, 100);
+    }
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, canvas.width, canvas.height, {
+        inversionAttempts: 'dontInvert'
+    });
+
+    if (code) {
+        scannedId = code.data;
+        stopScanning();
+        displayScannedData();
+        showNotification('✓ Scan Successful!');
+        return;
+    }
+
+    requestAnimationFrame(scanQRCode);
 }
 
 function displayScannedData() {
@@ -521,6 +550,32 @@ function updateSyncStatus(status) {
     syncStatus.textContent = status;
 }
 
+async function setupBarcodeDetector() {
+    if (!('BarcodeDetector' in window)) {
+        return;
+    }
+
+    try {
+        const supported = await BarcodeDetector.getSupportedFormats();
+        const formats = supported.filter(format => [
+            'qr_code',
+            'code_128',
+            'ean_13',
+            'ean_8',
+            'upc_a',
+            'upc_e',
+            'code_39',
+            'code_93'
+        ].includes(format));
+
+        if (formats.length > 0) {
+            barcodeDetector = new BarcodeDetector({ formats });
+        }
+    } catch (err) {
+        console.warn('BarcodeDetector initialization failed', err);
+    }
+}
+
 // ==================== NETWORK STATUS ====================
 window.addEventListener('online', () => {
     updateSyncStatus('✓ Online - Ready to sync');
@@ -535,6 +590,7 @@ window.addEventListener('offline', () => {
 // ==================== INITIALIZATION ====================
 async function initialize() {
     await db.init();
+    await setupBarcodeDetector();
     updateSyncStatus(navigator.onLine ? '✓ Ready' : '📶 Offline');
     loadDataTable();
     showMessage('👋 Ready to scan! Select a course to begin.', 'info');
